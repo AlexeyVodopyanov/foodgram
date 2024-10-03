@@ -1,0 +1,16 @@
+Django==3.2.3
+djangorestframework==3.12.4
+djoser==2.1.0
+webcolors==1.11.1
+Pillow==9.3.0
+gunicorn==20.1.0
+django-import-export
+django-filter==23.1
+drf_extra_fields
+psycopg2-binary==2.9.3
+PyYAML==6.0
+requests==2.26.0
+drf-extra-fields
+django-cors-headers
+drf_base64
+short_url
