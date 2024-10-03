@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
 
+from django.core.management.utils import get_random_secret_key
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-d$p03r@-z6a^hol$!dh#(^pp5$j3%@4jm_ivwi8ffl4w90r1dq'
+SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 
 DEBUG = os.getenv('DEBUG') == 'True'
 
@@ -138,4 +140,4 @@ AUTH_USER_MODEL = 'users.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-DOMAIN_NAME = 'http://localhost:8000/'
+DOMAIN_NAME = os.getenv('DOMAIN_NAME')
