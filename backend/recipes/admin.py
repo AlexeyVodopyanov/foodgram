@@ -22,7 +22,8 @@ class AdminUser(UserAdmin):
 
     @admin.display(description='Подписчики')
     def get_subscribers(self, obj):
-        subscribers = Subscriber.objects.filter(author_id=obj.id).values_list('user__username', flat=True)
+        subscribers = (Subscriber.objects.filter(author_id=obj.id)
+                       .values_list('user__username', flat=True))
         return ', '.join(subscribers)
 
 

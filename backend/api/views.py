@@ -55,11 +55,13 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated])
     def set_password(self, request):
         """Изменение пароля пользователя."""
-        serializer = PasswordSerializer(data=request.data, context={'request': request})
+        serializer = PasswordSerializer(data=request.data,
+                                        context={'request': request})
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save()
-        return Response({'detail': 'Пароль успешно изменён.'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Пароль успешно изменён.'},
+                        status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'],
             permission_classes=[IsAuthenticated])
@@ -197,7 +199,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         for ingredient in shopping_cart:
             name = ingredient['recipe_id__ingredients__name']
             amount = ingredient['recipe_id__recipeingredients__amount']
-            measurement_unit = ingredient['recipe_id__ingredients__measurement_unit']
+            measurement_unit = ingredient[
+                'recipe_id__ingredients__measurement_unit']
             if name in ingredients:
                 ingredients[name][0] += amount
             else:
@@ -209,5 +212,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             output.write(f'{name} - {amount} ({unit}).\n')
 
         response = HttpResponse(output.getvalue(), content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        response['Content-Disposition'] = ('attachment; '
+                                           'filename="shopping_list.txt"')
         return response

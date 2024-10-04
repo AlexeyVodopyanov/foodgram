@@ -14,7 +14,8 @@ class BaseSubscriptionSerializer(serializers.ModelSerializer):
         """Проверка подписки"""
         request = self.context.get('request')
         if request and not request.user.is_anonymous:
-            return Subscriber.objects.filter(user=request.user, author=obj).exists()
+            return Subscriber.objects.filter(user=request.user,
+                                             author=obj).exists()
         return False
 
 
@@ -164,7 +165,6 @@ class RecipeSerializer(BaseRecipeSerializer):
         return (Favourites.objects.filter(user=user,
                                           recipe=obj)
                 .exists()) if user.is_authenticated else False
-
 
 
 class RecipeWriteIngredientSerializer(serializers.ModelSerializer):
