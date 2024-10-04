@@ -1,11 +1,10 @@
 import random
 import string
+from io import StringIO
 
 from django.conf import settings
-from django.db.models import F
-from django.http import FileResponse
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.urls import reverse
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import JSONParser
@@ -21,8 +20,6 @@ from .serializers import (AvatarSerializer, IngredientSerializer,
                           TagSerializer, UserSerializer)
 from recipes.models import Favourites, Ingredient, Recipe, ShoppingCart, Tag
 from users.models import Subscriber, User
-
-short_links = {}
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -58,19 +55,11 @@ class UserViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated])
     def set_password(self, request):
         """Изменение пароля пользователя."""
-        user = request.user
-        serializer = PasswordSerializer(data=request.data,
-                                        context={'request': request})
-        if serializer.is_valid():
-            if not user.check_password(
-                    serializer.validated_data['current_password']):
-                return Response({'detail': 'Текущий пароль неверен.'},
-                                status=status.HTTP_400_BAD_REQUEST)
-            user.set_password(serializer.validated_data['new_password'])
-            user.save()
-            return Response({'detail': 'Пароль успешно изменен.'},
-                            status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PasswordSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data['new_password'])
+        request.user.save()
+        return Response({'detail': 'Пароль успешно изменён.'}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'],
             permission_classes=[IsAuthenticated])
@@ -94,20 +83,27 @@ class UserViewSet(viewsets.ModelViewSet):
         user = request.user
         author = get_object_or_404(User, id=pk)
         if request.method == 'POST':
-            if Subscriber.objects.filter(user=user, author=author).exists():
+            if self.check_subscription(user, author):
                 return Response({'detail': 'Вы уже подписаны'},
                                 status=status.HTTP_400_BAD_REQUEST)
             Subscriber.objects.create(user=user, author=author)
             serializer = SubscriptionsSerializer(author,
                                                  context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        subscription = Subscriber.objects.filter(user=user,
-                                                 author=author).first()
+        subscription = self.get_subscription(user, author)
         if not subscription:
             return Response({'detail': 'Вы не подписаны'},
                             status=status.HTTP_400_BAD_REQUEST)
         subscription.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def check_subscription(self, user, author):
+        """Проверка подписки на автора."""
+        return Subscriber.objects.filter(user=user, author=author).exists()
+
+    def get_subscription(self, user, author):
+        """Получение подписки."""
+        return Subscriber.objects.filter(user=user, author=author).first()
 
 
 class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
@@ -146,8 +142,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Добавление или удаление рецепта в избранное или список покупок."""
         recipe = get_object_or_404(Recipe, id=pk)
         obj = model.objects.filter(user=request.user, recipe=recipe)
+        exists = obj.exists()
         if request.method == 'POST':
-            if obj.exists():
+            if exists:
                 return Response({'detail': 'Уже в списке'},
                                 status=status.HTTP_400_BAD_REQUEST)
             model.objects.create(user=request.user, recipe=recipe)
@@ -155,7 +152,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         if request.method == 'DELETE':
-            if not obj.exists():
+            if not exists:
                 return Response({'detail': 'Не найдено'},
                                 status=status.HTTP_400_BAD_REQUEST)
             obj.delete()
@@ -164,9 +161,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='get-link')
     def get_link(self, request, pk=None):
         """Прямая ссылка на рецепт"""
-        recipe = get_object_or_404(Recipe, pk=pk)
-        request.build_absolute_uri(reverse('api:recipe-detail',
-                                           kwargs={'pk': recipe.pk}))
+        get_object_or_404(Recipe, pk=pk)
         short_link = self.generate_short_url()
         full_short_url = f"{settings.DOMAIN_NAME}s/{short_link}"
         return Response({'short-link': full_short_url},
@@ -192,25 +187,27 @@ class RecipeViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated])
     def download_shopping_cart(self, request):
         """Скачать список покупок в виде текстового файла."""
-        shoppingcart = ShoppingCart.objects.filter(
-            user=request.user).values('recipe_id__ingredients__name').annotate(
-            amount=F('recipe_id__recipeingredients__amount'),
-            measurement_unit=F('recipe_id__ingredients__measurement_unit')
+        shopping_cart = ShoppingCart.objects.filter(
+            user=request.user).values(
+            'recipe_id__ingredients__name',
+            'recipe_id__recipeingredients__amount',
+            'recipe_id__ingredients__measurement_unit'
         ).order_by('recipe_id__ingredients__name')
         ingredients = {}
-        for ingredient in shoppingcart:
-            ingredient_name = ingredient['recipe_id__ingredients__name']
-            amount = ingredient['amount']
-            measurement_unit = ingredient['measurement_unit']
-            if ingredient_name not in ingredients:
-                ingredients[ingredient_name] = (amount, measurement_unit)
+        for ingredient in shopping_cart:
+            name = ingredient['recipe_id__ingredients__name']
+            amount = ingredient['recipe_id__recipeingredients__amount']
+            measurement_unit = ingredient['recipe_id__ingredients__measurement_unit']
+            if name in ingredients:
+                ingredients[name][0] += amount
             else:
-                ingredients[ingredient_name] = (
-                    ingredients[ingredient_name][0] + amount,
-                    measurement_unit)
-        with open("shopping_list.txt", "w") as file:
-            file.write('Ваш список покупок:' + '\n')
-            for ingredient, amount in ingredients.items():
-                file.write(f'{ingredient} - {amount[0]}({amount[1]}).' + '\n')
-            file.close()
-        return FileResponse(open('shopping_list.txt', 'rb'))
+                ingredients[name] = [amount, measurement_unit]
+
+        output = StringIO()
+        output.write('Ваш список покупок:\n')
+        for name, (amount, unit) in ingredients.items():
+            output.write(f'{name} - {amount} ({unit}).\n')
+
+        response = HttpResponse(output.getvalue(), content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        return response

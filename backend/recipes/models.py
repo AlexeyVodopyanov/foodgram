@@ -60,12 +60,6 @@ class Recipe(models.Model):
                                          verbose_name='Ингредиент',
                                          help_text=('Назовите ингредиента'
                                                     ' рецепта'))
-    is_favorited = models.BooleanField(default=True,
-                                       verbose_name='Избранное',
-                                       help_text='Отметьте в избранное')
-    is_in_shopping_cart = models.BooleanField(default=True,
-                                              verbose_name='Корзина',
-                                              help_text='Отложите в корзину')
     image = models.ImageField(upload_to='recipes_images',
                               verbose_name='Изображение',
                               help_text='Выложите изображение')

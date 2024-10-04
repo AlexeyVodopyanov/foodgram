@@ -7,7 +7,28 @@ from recipes.models import (Favourites, Ingredient, Recipe, RecipeIngredient,
 from users.models import Subscriber, User
 
 
-class UserSerializer(serializers.ModelSerializer):
+class BaseSubscriptionSerializer(serializers.ModelSerializer):
+    """Базовый сериализатор для подписок с общей логикой"""
+
+    def get_is_subscribed(self, obj):
+        """Проверка подписки"""
+        request = self.context.get('request')
+        if request and not request.user.is_anonymous:
+            return Subscriber.objects.filter(user=request.user, author=obj).exists()
+        return False
+
+
+class BaseRecipeSerializer(serializers.ModelSerializer):
+    """Базовый сериализатор для рецептов с общей логикой"""
+
+    def get_is_in_shopping_cart(self, obj):
+        """Проверка, находится ли рецепт в списке покупок"""
+        user = self.context['request'].user
+        return (ShoppingCart.objects.filter(user=user, recipe=obj)
+                .exists()) if user.is_authenticated else False
+
+
+class UserSerializer(BaseSubscriptionSerializer):
     """Сериализатор для пользователя с улучшенной валидацией"""
     is_subscribed = serializers.SerializerMethodField()
 
@@ -25,14 +46,6 @@ class UserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
-
-    def get_is_subscribed(self, obj):
-        """Проверка подписки на автора рецепта"""
-        request = self.context.get('request')
-        if request and not request.user.is_anonymous:
-            return Subscriber.objects.filter(user=request.user,
-                                             author=obj).exists()
-        return False
 
 
 class PasswordSerializer(serializers.Serializer):
@@ -55,7 +68,7 @@ class ShortRecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class SubscriptionsSerializer(serializers.ModelSerializer):
+class SubscriptionsSerializer(BaseSubscriptionSerializer):
     """Сериализатор для подписок текущего пользователя"""
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
@@ -66,14 +79,6 @@ class SubscriptionsSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'first_name', 'last_name',
                   'email', 'is_subscribed', 'recipes', 'recipes_count',
                   'avatar')
-
-    def get_is_subscribed(self, obj):
-        """Проверка подписки"""
-        request = self.context.get('request')
-        if request and not request.user.is_anonymous:
-            return Subscriber.objects.filter(user=request.user,
-                                             author=obj).exists()
-        return False
 
     def get_recipes(self, obj):
         """Возвращает ограниченный список рецептов автора"""
@@ -136,7 +141,7 @@ class RecipeInIngredientSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
 
-class RecipeSerializer(serializers.ModelSerializer):
+class RecipeSerializer(BaseRecipeSerializer):
     """Сериализатор для метода GET рецептов"""
     tags = TagSerializer(many=True, read_only=True)
     ingredients = RecipeInIngredientSerializer(many=True,
@@ -160,12 +165,6 @@ class RecipeSerializer(serializers.ModelSerializer):
                                           recipe=obj)
                 .exists()) if user.is_authenticated else False
 
-    def get_is_in_shopping_cart(self, obj):
-        """Проверка, находится ли рецепт в списке покупок"""
-        user = self.context['request'].user
-        return (ShoppingCart.objects.filter(user=user,
-                                            recipe=obj)
-                .exists()) if user.is_authenticated else False
 
 
 class RecipeWriteIngredientSerializer(serializers.ModelSerializer):

@@ -14,15 +14,16 @@ class AdminSubscribersInline(admin.TabularInline):
 
 class AdminUser(UserAdmin):
     """Админ модель для пользователей."""
-    @admin.display(description='Подписчики')
-    def get_subscribers(self, obj):
-        subscribers = Subscriber.objects.filter(author_id=obj.id)
-        return [i.user for i in subscribers]
     list_display = ('id', 'username', 'first_name', 'last_name',
                     'email', 'get_subscribers',)
     list_filter = ('username',)
     search_fields = ('username',)
     ordering = ('username',)
+
+    @admin.display(description='Подписчики')
+    def get_subscribers(self, obj):
+        subscribers = Subscriber.objects.filter(author_id=obj.id).values_list('user__username', flat=True)
+        return ', '.join(subscribers)
 
 
 class AdminRecipeIngredientInline(admin.TabularInline):
@@ -33,23 +34,25 @@ class AdminRecipeIngredientInline(admin.TabularInline):
 
 class AdminRecipe(admin.ModelAdmin):
     """Админ модель для рецептов."""
-    @admin.display(description='Теги')
-    def get_tags(self, obj):
-        return ', '.join([tag.name for tag in obj.tags.all()])
-
-    @admin.display(description='Ингредиенты')
-    def get_ingredients(self, obj):
-        ingredients = obj.recipeingredients.all()
-        return (', '.join(
-                [f'{ingredient.ingredients} - {ingredient.amount} '
-                 f'{ingredient.ingredients.measurement_unit}'
-                 for ingredient in ingredients]))
     inlines = (AdminRecipeIngredientInline,)
     list_display = ('id', 'name', 'author',
                     'get_tags', 'get_ingredients',)
     search_fields = ('name',)
     list_filter = ('name',)
     empty_value_display = 'Незадано'
+
+    @admin.display(description='Теги')
+    def get_tags(self, obj):
+        tags = obj.tags.values_list('name', flat=True)
+        return ', '.join(tags)
+
+    @admin.display(description='Ингредиенты')
+    def get_ingredients(self, obj):
+        ingredients = obj.recipeingredients.values_list(
+            'ingredients__name', 'amount', 'ingredients__measurement_unit')
+        return ', '.join(
+            [f'{ingredient[0]} - {ingredient[1]} {ingredient[2]}'
+             for ingredient in ingredients])
 
 
 class AdminIngredient(ImportExportActionModelAdmin, admin.ModelAdmin):
