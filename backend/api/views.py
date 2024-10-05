@@ -3,6 +3,7 @@ import string
 from io import StringIO
 
 from django.conf import settings
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
@@ -186,23 +187,23 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def download_shopping_cart(self, request):
         """Скачать список покупок в виде текстового файла."""
         shopping_cart = ShoppingCart.objects.filter(
-            user=request.user).values(
+            user=request.user
+        ).values(
             'recipe_id__ingredients__name',
-            'recipe_id__recipeingredients__amount',
             'recipe_id__ingredients__measurement_unit'
+        ).annotate(
+            total_amount=Sum('recipe_id__recipeingredients__amount')
         ).order_by('recipe_id__ingredients__name')
-        ingredients = {}
-        for ingredient in shopping_cart:
-            name = ingredient['recipe_id__ingredients__name']
-            amount = ingredient['recipe_id__recipeingredients__amount']
-            measurement_unit = ingredient[
-                'recipe_id__ingredients__measurement_unit']
-            ingredients.setdefault(name, [0, measurement_unit])[0] += amount
 
         output = StringIO()
         output.write('Ваш список покупок:\n')
-        for name, (amount, unit) in ingredients.items():
-            output.write(f'{name} - {amount} ({unit}).\n')
+
+        for ingredient in shopping_cart:
+            name = ingredient['recipe_id__ingredients__name']
+            amount = ingredient['total_amount']
+            measurement_unit = ingredient[
+                'recipe_id__ingredients__measurement_unit']
+            output.write(f'{name} - {amount} ({measurement_unit}).\n')
 
         response = HttpResponse(output.getvalue(), content_type='text/plain')
         response['Content-Disposition'] = ('attachment; '
