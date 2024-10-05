@@ -22,11 +22,19 @@ class BaseSubscriptionSerializer(serializers.ModelSerializer):
 class BaseRecipeSerializer(serializers.ModelSerializer):
     """Базовый сериализатор для рецептов с общей логикой"""
 
+    def check_recipe_status(self, obj, model):
+        """Проверка, находится ли рецепт в модели"""
+        user = self.context['request'].user
+        return (model.objects.filter(user=user, recipe=obj)
+                .exists()) if user.is_authenticated else False
+
     def get_is_in_shopping_cart(self, obj):
         """Проверка, находится ли рецепт в списке покупок"""
-        user = self.context['request'].user
-        return (ShoppingCart.objects.filter(user=user, recipe=obj)
-                .exists()) if user.is_authenticated else False
+        return self.check_recipe_status(obj, ShoppingCart)
+
+    def get_is_favorited(self, obj):
+        """Проверка, является ли рецепт избранным"""
+        return self.check_recipe_status(obj, Favourites)
 
 
 class UserSerializer(BaseSubscriptionSerializer):
@@ -160,11 +168,10 @@ class RecipeSerializer(BaseRecipeSerializer):
                   'cooking_time')
 
     def get_is_favorited(self, obj):
-        """Проверка, является ли рецепт избранным"""
-        user = self.context['request'].user
-        return (Favourites.objects.filter(user=user,
-                                          recipe=obj)
-                .exists()) if user.is_authenticated else False
+        return self.check_recipe_status(obj, Favourites)
+
+    def get_is_in_shopping_cart(self, obj):
+        return self.check_recipe_status(obj, ShoppingCart)
 
 
 class RecipeWriteIngredientSerializer(serializers.ModelSerializer):

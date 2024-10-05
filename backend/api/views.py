@@ -39,7 +39,7 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['put', 'delete'], url_path='me/avatar',
             permission_classes=[IsAuthenticated], parser_classes=[JSONParser])
     def avatar(self, request):
-        """Аватара пользователя."""
+        """Аватар пользователя."""
         user = request.user
         if request.method == 'DELETE':
             user.avatar.delete()
@@ -84,24 +84,20 @@ class UserViewSet(viewsets.ModelViewSet):
         """Подписка и отписка от пользователя."""
         user = request.user
         author = get_object_or_404(User, id=pk)
+        subscription = self.get_subscription(user, author)
         if request.method == 'POST':
-            if self.check_subscription(user, author):
+            if subscription:
                 return Response({'detail': 'Вы уже подписаны'},
                                 status=status.HTTP_400_BAD_REQUEST)
             Subscriber.objects.create(user=user, author=author)
             serializer = SubscriptionsSerializer(author,
                                                  context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        subscription = self.get_subscription(user, author)
         if not subscription:
             return Response({'detail': 'Вы не подписаны'},
                             status=status.HTTP_400_BAD_REQUEST)
         subscription.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def check_subscription(self, user, author):
-        """Проверка подписки на автора."""
-        return Subscriber.objects.filter(user=user, author=author).exists()
 
     def get_subscription(self, user, author):
         """Получение подписки."""
@@ -201,10 +197,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             amount = ingredient['recipe_id__recipeingredients__amount']
             measurement_unit = ingredient[
                 'recipe_id__ingredients__measurement_unit']
-            if name in ingredients:
-                ingredients[name][0] += amount
-            else:
-                ingredients[name] = [amount, measurement_unit]
+            ingredients.setdefault(name, [0, measurement_unit])[0] += amount
 
         output = StringIO()
         output.write('Ваш список покупок:\n')
