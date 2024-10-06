@@ -1,9 +1,8 @@
 # Foodgram
 
-<h1 align="center">Привет всем! Меня зовут <a href="https://daniilshat.ru/" target="_blank">Алексей</a> 
-<img src="https://github.com/blackcater/blackcater/raw/main/images/Hi.gif" height="32"/></h1>
+Привет всем! Меня зовут Алексей.
 
-<h2 align="center"><a href="https://alexey-foodgram.ddns.net/recipes">сайт Foodgram</a></h2>
+Сайт проект Foodgram https://alexey-foodgram.ddns.net
 
 ## Описание проекта
 
