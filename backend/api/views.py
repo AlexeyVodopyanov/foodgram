@@ -159,11 +159,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='get-link')
     def get_link(self, request, pk=None):
-        """Прямая ссылка на рецепт"""
-        get_object_or_404(Recipe, pk=pk)
-        short_link = self.generate_short_url()
-        full_short_url = f"{settings.DOMAIN_NAME}s/{short_link}"
-        return Response({'short-link': full_short_url},
+        recipe = get_object_or_404(Recipe, pk=pk)
+        full_url = f"{settings.DOMAIN_NAME}/recipes/{recipe.id}/"
+        return Response({'short-link': full_url},
                         status=status.HTTP_200_OK)
 
     def generate_short_url(self, length=6):
