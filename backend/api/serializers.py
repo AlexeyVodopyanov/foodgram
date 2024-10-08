@@ -139,8 +139,7 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 class RecipeInIngredientSerializer(serializers.ModelSerializer):
     """Вспомогательный сериализатор для отображения ингредиентов рецепта"""
-    id = serializers.PrimaryKeyRelatedField(
-        queryset=Ingredient.objects.all())
+    id = serializers.ReadOnlyField(source='ingredients.id')
     name = serializers.ReadOnlyField(source='ingredients.name')
     measurement_unit = serializers.ReadOnlyField(
         source='ingredients.measurement_unit')
