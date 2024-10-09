@@ -1,6 +1,7 @@
 # Foodgram
 
-Привет всем! Меня зовут Алексей.
+<h1 align="center">Привет всем! Меня зовут Алексей 
+<img src="https://github.com/blackcater/blackcater/raw/main/images/Hi.gif" height="32"/></h1>
 
 Сайт проект Foodgram https://alexey-foodgram.ddns.net
 
